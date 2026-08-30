@@ -66,6 +66,20 @@ export function SignupPage() {
     setBusy(true);
     try {
       localStorage.setItem(`signup:${token}`, JSON.stringify({ email, fullName }));
+      const { data: existingSession } = await supabase.auth.getSession();
+      if (existingSession.session?.user) {
+        if (existingSession.session.user.email?.toLowerCase() !== email.toLowerCase()) {
+          throw new Error('O email informado é diferente da conta atualmente conectada. Saia e entre com o email convidado.');
+        }
+        if (!existingSession.session.user.email_confirmed_at) {
+          setNeedsEmailConfirm(true);
+          setBusy(false);
+          return;
+        }
+        await finishSignup(fullName);
+        localStorage.removeItem(`signup:${token}`);
+        return;
+      }
       const { data, error: signUpError } = await supabase.auth.signUp({
         email,
         password,
