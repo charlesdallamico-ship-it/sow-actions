@@ -29,11 +29,14 @@ export function useCompanyData() {
 
     if (!companyId) { setCompany(null); setDepartments([]); setUnits([]); setUsers([]); setObjectives([]); setIndicators([]); setLoading(false); return; }
     setLoading(true);
+    const usersQuery = profile.role === 'sow_admin' || profile.role === 'company_admin'
+      ? supabase.rpc('get_user_access_overview', { p_company_id: companyId })
+      : supabase.from('profiles').select('*').eq('company_id', companyId).order('full_name');
     const [c, d, u, p, o, i] = await Promise.all([
       supabase.from('companies').select('*').eq('id', companyId).maybeSingle(),
       supabase.from('departments').select('*').eq('company_id', companyId).order('name'),
       supabase.from('units').select('*').eq('company_id', companyId).order('name'),
-      supabase.rpc('get_user_access_overview', { p_company_id: companyId }),
+      usersQuery,
       supabase.from('strategic_objectives').select('*').eq('company_id', companyId).order('name'),
       supabase.from('indicators').select('*').eq('company_id', companyId).order('name'),
     ]);

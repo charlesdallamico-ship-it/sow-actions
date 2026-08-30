@@ -22,7 +22,7 @@ export function DashboardPage({ onNavigate }: { onNavigate: (id: string) => void
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!companyId) return;
+    if (!companyId) { setFacts([]); setActions([]); setLoading(false); return; }
     (async () => {
       const [f, a] = await Promise.all([
         supabase.from('facts').select('*').eq('company_id', companyId).order('created_at', { ascending: false }),
