@@ -13,7 +13,8 @@ Deno.serve(async (req: Request) => {
   }
 
   try {
-    const { email } = await req.json();
+    const { email: rawEmail } = await req.json();
+    const email = typeof rawEmail === "string" ? rawEmail.trim().toLowerCase() : "";
     if (!email) {
       return new Response(JSON.stringify({ error: "email é obrigatório" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
@@ -21,9 +22,14 @@ Deno.serve(async (req: Request) => {
     const supabaseAdmin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!, { auth: { autoRefreshToken: false, persistSession: false } });
 
     // Find user by email
-    const { data: profile } = await supabaseAdmin.from("profiles").select("user_id, company_id, email, full_name, active").eq("email", email).maybeSingle();
-    if (!profile || !profile.active) {
+    const { data: profile } = await supabaseAdmin.from("profiles").select("user_id, company_id, email, full_name, active, company_assignment_status, companies!company_id(status)").ilike("email", email).maybeSingle();
+    if (!profile || !profile.active || profile.company_assignment_status !== "approved" || !profile.company_id || !profile.companies || !["active", "trial"].includes(profile.companies.status)) {
       // Don't reveal whether email exists — return success
+      return new Response(JSON.stringify({ success: true }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
+    const { data: authUser } = await supabaseAdmin.auth.admin.getUserById(profile.user_id);
+    if (!authUser.user?.email_confirmed_at) {
       return new Response(JSON.stringify({ success: true }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
@@ -32,27 +38,35 @@ Deno.serve(async (req: Request) => {
     const expiresAt = new Date();
     expiresAt.setHours(expiresAt.getHours() + 1);
 
-    await supabaseAdmin.from("password_reset_tokens").insert({
+    const { error: tokenError } = await supabaseAdmin.from("password_reset_tokens").insert({
       company_id: profile.company_id,
       user_id: profile.user_id,
       email: profile.email,
       token,
       expires_at: expiresAt.toISOString(),
     });
+    if (tokenError) {
+      console.error("Falha ao criar token de recuperação", tokenError.message);
+      return new Response(JSON.stringify({ error: "Não foi possível enviar o e-mail de recuperação." }), { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
 
     // Trigger reset email
     const EDGE_URL = `${Deno.env.get("SUPABASE_URL")}/functions/v1/send-email`;
-    const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
-    await fetch(EDGE_URL, {
+    const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const emailResponse = await fetch(EDGE_URL, {
       method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${ANON_KEY}` },
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${SERVICE_ROLE_KEY}` },
       body: JSON.stringify({
         type: "password_reset",
         companyId: profile.company_id,
         recipientUserId: profile.user_id,
         resetToken: token,
       }),
-    }).catch(() => {});
+    });
+    if (!emailResponse.ok) {
+      console.error("Falha ao preparar recuperação de senha", await emailResponse.text().catch(() => ""));
+      return new Response(JSON.stringify({ error: "Não foi possível enviar o e-mail de recuperação." }), { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
 
     return new Response(JSON.stringify({ success: true }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (err) {

@@ -22,14 +22,18 @@ export function LoginPage() {
       try {
         const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
         const ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
-        await fetch(`${SUPABASE_URL}/functions/v1/reset-password`, {
+        const response = await fetch(`${SUPABASE_URL}/functions/v1/reset-password`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${ANON_KEY}` },
           body: JSON.stringify({ email }),
         });
+        if (!response.ok) {
+          const result = await response.json().catch(() => null) as { error?: string } | null;
+          throw new Error(result?.error || 'Não foi possível enviar o e-mail de recuperação.');
+        }
         setResetSent(true);
-      } catch {
-        setError('Não foi possível enviar o e-mail de recuperação.');
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Não foi possível enviar o e-mail de recuperação.');
       }
       setBusy(false);
       return;
