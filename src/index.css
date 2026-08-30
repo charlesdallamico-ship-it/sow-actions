@@ -1,0 +1,59 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --sow-teal:   #1a8f86;
+  --sow-gold:   #c4902a;
+  --sow-dark:   #0d0d0d;
+  --sow-dark2:  #1a1a1a;
+  --sow-dark3:  #2a2a2a;
+}
+
+html, body, #root {
+  height: 100%;
+}
+
+body {
+  font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  background: #f1f5f9;
+}
+
+/* ── Scrollbar ── */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #d0d0d0; border-radius: 8px; }
+::-webkit-scrollbar-thumb:hover { background: #a0a0a0; }
+
+/* ── Animations ── */
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.animate-fade-in { animation: fade-in 0.3s ease-out; }
+
+@keyframes slide-in-right {
+  from { opacity: 0; transform: translateX(20px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+.animate-slide-in { animation: slide-in-right 0.28s ease-out; }
+
+@keyframes scale-in {
+  from { opacity: 0; transform: scale(0.95); }
+  to   { opacity: 1; transform: scale(1); }
+}
+.animate-scale-in { animation: scale-in 0.2s ease-out; }
+
+/* ── Sidebar active glow ── */
+.sow-nav-active {
+  background: linear-gradient(90deg, #1a8f86 0%, #157470 100%);
+  box-shadow: 0 2px 12px 0 rgba(26,143,134,0.35);
+}
+
+/* ── Gold accent line ── */
+.sow-gold-bar {
+  background: linear-gradient(90deg, #c4902a, #e8c97a, #c4902a);
+}
