@@ -16,7 +16,13 @@ function UsersTab() {
   const [editUser, setEditUser] = useState<Profile | null>(null);
   const [editForm, setEditForm] = useState({ full_name: '', role: 'responsible' as Role, department_id: '', position: '', phone: '' });
   const [form, setForm] = useState({ full_name: '', email: '', role: 'responsible' as Role, department_id: '', position: '', phone: '' });
-  const canManage = profile?.role === 'sow_admin' || profile?.role === 'company_admin';
+  const [delegatedUserManagement, setDelegatedUserManagement] = useState(false);
+  const canManage = profile?.role === 'sow_admin' || profile?.role === 'company_admin' || delegatedUserManagement;
+
+  useEffect(() => {
+    if (!profile || !companyId || profile.role === 'sow_admin' || profile.role === 'company_admin') return;
+    supabase.from('user_permissions').select('can_manage_users').eq('company_id', companyId).eq('user_id', profile.user_id).maybeSingle().then(({ data }) => setDelegatedUserManagement(data?.can_manage_users === true));
+  }, [profile, companyId]);
 
   const roles: Role[] = profile?.role === 'sow_admin' ? ['sow_admin', 'company_admin', 'area_manager', 'responsible', 'viewer'] : ['company_admin', 'area_manager', 'responsible', 'viewer'];
 
