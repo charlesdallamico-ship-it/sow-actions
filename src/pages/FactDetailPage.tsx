@@ -498,6 +498,7 @@ export function FactDetailPage({ factId, onBack }: { factId: string; onBack: () 
 
   const saveFactEdit = async (reason: string) => {
     if (!fact || !profile) return;
+    if (!factForm.objective_id) { alert('Todo fato deve estar vinculado a um objetivo estratégico.'); return; }
     const updates: Record<string, unknown> = {};
     const changes: { field: string; oldVal: string; newVal: string; type: string } = [];
     if (factForm.fato !== fact.fato) {
@@ -949,7 +950,7 @@ export function FactDetailPage({ factId, onBack }: { factId: string; onBack: () 
           <div className="border-b border-slate-100 pb-3">
             <div className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2">Identificação</div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <Select label="Objetivo estratégico" value={factForm.objective_id} onChange={(v) => setFactForm({ ...factForm, objective_id: v })} placeholder="Selecione" options={[{ value: '', label: 'Nenhum' }, ...objectives.map((o) => ({ value: o.id, label: o.name }))]} />
+              <Select label="Objetivo estratégico" value={factForm.objective_id} onChange={(v) => setFactForm({ ...factForm, objective_id: v })} placeholder="Selecione um objetivo" required options={objectives.map((o) => ({ value: o.id, label: o.name }))} />
               <Select label="Departamento" value={factForm.department_id} onChange={(v) => setFactForm({ ...factForm, department_id: v })} placeholder="Selecione" options={[{ value: '', label: 'Nenhum' }, ...departments.map((d) => ({ value: d.id, label: d.name }))]} />
               <Select label="Unidade" value={factForm.unit_id} onChange={(v) => setFactForm({ ...factForm, unit_id: v })} placeholder="Selecione" options={[{ value: '', label: 'Nenhuma' }, ...units.map((u) => ({ value: u.id, label: u.name }))]} />
               <Select label="Categoria" value={factForm.category} onChange={(v) => setFactForm({ ...factForm, category: v })} placeholder="Selecione" options={[{ value: '', label: 'Nenhuma' }, ...ACTION_CATEGORIES.map((c) => ({ value: c, label: c }))]} />

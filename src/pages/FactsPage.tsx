@@ -48,7 +48,7 @@ export function FactsPage({ onOpenFact }: { onOpenFact: (id: string) => void }) 
   }), [facts, search]);
 
   const save = async () => {
-    if (!form.fato || !form.causa || !companyId) return;
+    if (!form.fato || !form.causa || !form.objective_id || !companyId) { alert('Selecione um objetivo estratégico para vincular o fato.'); return; }
     const { data: codeData } = await supabase.rpc('next_fact_code', { company_uuid: companyId });
     const code = (codeData as string) || `FATO-0001`;
     const { data, error } = await supabase.from('facts').insert({
@@ -128,7 +128,7 @@ export function FactsPage({ onOpenFact }: { onOpenFact: (id: string) => void }) 
             Método: <strong>Fato → Causa → Ação → Responsável → Prazo → Acompanhamento → Resultado</strong>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <Select label="Objetivo estratégico" value={form.objective_id} onChange={(v) => setForm({ ...form, objective_id: v })} placeholder="Sem objetivo" options={objectives.map((o) => ({ value: o.id, label: o.name }))} />
+            <Select label="Objetivo estratégico" value={form.objective_id} onChange={(v) => setForm({ ...form, objective_id: v })} placeholder="Selecione um objetivo" required options={objectives.map((o) => ({ value: o.id, label: o.name }))} />
             <Select label="Departamento" value={form.department_id} onChange={(v) => setForm({ ...form, department_id: v })} placeholder="Sem departamento" options={departments.map((d) => ({ value: d.id, label: d.name }))} />
             <Select label="Unidade/Filial" value={form.unit_id} onChange={(v) => setForm({ ...form, unit_id: v })} placeholder="Sem unidade" options={units.map((u) => ({ value: u.id, label: u.name }))} />
             <Select label="Categoria" value={form.category} onChange={(v) => setForm({ ...form, category: v })} placeholder="Selecione" options={ACTION_CATEGORIES.map((c) => ({ value: c, label: c.charAt(0).toUpperCase() + c.slice(1) }))} />
