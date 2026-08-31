@@ -341,6 +341,15 @@ export function FactDetailPage({ factId, onBack }: { factId: string; onBack: () 
     }
   };
 
+  const validateResponsibility = async (a: Action) => {
+    if (!profile || !isPrimary || !a.responsible_id || !fact) return;
+    const now = new Date().toISOString();
+    const { error } = await supabase.from('actions').update({ responsibility_validated: true, responsibility_validated_by: profile.id, responsibility_validated_at: now }).eq('id', a.id);
+    if (error) { alert(error.message); return; }
+    await supabase.from('action_assignees').upsert({ action_id: a.id, profile_id: a.responsible_id, company_id: fact.company_id, assignment_type: 'responsible', can_edit: true, validated: true, validated_by: profile.id, validated_at: now });
+    load();
+  };
+
   const updateProgress = async (a: Action, percent: number) => {
     const isResponsible = a.responsible_id === profile?.id;
     const isEditor = canManagePlan || perms.canEditActions;
@@ -763,6 +772,7 @@ export function FactDetailPage({ factId, onBack }: { factId: string; onBack: () 
                           <span className="w-6 h-6 rounded-full bg-sow-100 text-sow-700 text-xs font-bold flex items-center justify-center">{idx + 1}</span>
                           <Badge className={cn(STATUS_COLORS[a.status].bg, STATUS_COLORS[a.status].text)}><span className={cn('w-1.5 h-1.5 rounded-full', STATUS_COLORS[a.status].dot)} />{STATUS_LABELS[a.status]}</Badge>
                           {a.approval_status && a.approval_status !== 'approved' && <Badge className="bg-violet-100 text-violet-700">Aprovação: {a.approval_status}</Badge>}
+                          {a.responsible_id && (a.responsibility_validated ? <Badge className="bg-emerald-100 text-emerald-700">Responsável validado</Badge> : isPrimary ? <button onClick={() => validateResponsibility(a)} className="text-xs text-sow-700 underline">Validar responsável</button> : <Badge className="bg-amber-100 text-amber-700">Aguardando validação</Badge>)}
                         </div>
                         <h3 className="font-semibold text-slate-900">{a.description}</h3>
                         {a.original_description && a.original_description !== a.description && canManagePlan && (
