@@ -73,7 +73,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return;
       }
     }
-    if (p && (!p.company_id || p.company_assignment_status !== 'approved')) {
+    // Administradores gerais da SOW não precisam estar vinculados a uma empresa
+    // para entrar: eles podem selecionar a empresa depois do login. Normalize o
+    // papel para evitar bloqueio por valor legado com espaços/maiúsculas.
+    const normalizedRole = p?.role?.trim().toLowerCase();
+    const isSowAdmin = normalizedRole === 'sow_admin';
+    if (p && !isSowAdmin && (!p.company_id || p.company_assignment_status !== 'approved')) {
       setProfile(null);
       setLoginBlockReason('Seu email foi confirmado, mas o acesso ainda aguarda a atribuição manual de uma empresa pelo administrador.');
       return;
