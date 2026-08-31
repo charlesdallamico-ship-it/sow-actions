@@ -14,6 +14,7 @@ export function canManagePermissions(profile: Profile | null): boolean {
 }
 
 const ALL_PERMISSIONS: PermissionKey[] = [
+  'can_manage_users',
   'can_create_facts',
   'can_edit_facts',
   'can_edit_causes',
@@ -130,6 +131,7 @@ export async function insertAuditLog(params: {
 }
 
 const PERMISSION_LABELS: Record<PermissionKey, string> = {
+  can_manage_users: 'Gerenciar usuários e vínculos de empresa',
   can_create_facts: 'Criar Fatos',
   can_edit_facts: 'Editar Fatos',
   can_edit_causes: 'Editar Causas',

@@ -51,6 +51,7 @@ export function PermissionsPage() {
         can_cancel_actions: false, can_reopen_actions: false,
         can_approve_actions: false, can_view_all_actions: false,
         can_view_history: false,
+        can_manage_users: false,
         full_management: false, is_primary_admin: user.is_primary_admin,
         created_at: '', updated_at: '',
       });

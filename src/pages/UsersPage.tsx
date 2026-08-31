@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { UserCog, Plus, Trash2, UserPlus, Link2, Copy, Check, Power, Users2 } from 'lucide-react';
+import { UserCog, Plus, Trash2, UserPlus, Link2, Copy, Check, Power, Users2, Pencil } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth';
 import { useCompanyData } from '@/lib/useCompanyData';
@@ -11,8 +11,10 @@ import type { Profile, Role, SignupLink, Company } from '@/lib/types';
 
 function UsersTab() {
   const { profile } = useAuth();
-  const { users, departments, reload, companyId } = useCompanyData();
+  const { users, departments, company, reload, companyId } = useCompanyData();
   const [modal, setModal] = useState(false);
+  const [editUser, setEditUser] = useState<Profile | null>(null);
+  const [editForm, setEditForm] = useState({ full_name: '', role: 'responsible' as Role, department_id: '', position: '', phone: '' });
   const [form, setForm] = useState({ full_name: '', email: '', role: 'responsible' as Role, department_id: '', position: '', phone: '' });
   const canManage = profile?.role === 'sow_admin' || profile?.role === 'company_admin';
 
@@ -37,6 +39,8 @@ function UsersTab() {
 
   const toggleActive = async (u: Profile) => { const { error } = await supabase.from('profiles').update({ active: !u.active }).eq('id', u.id); if (error) { alert(error.message); return; } reload(); };
   const remove = async (u: Profile) => { if (!confirm(`Remover ${u.full_name}?`)) return; const { error } = await supabase.from('profiles').delete().eq('id', u.id); if (error) { alert(error.message); return; } reload(); };
+  const openEdit = (u: Profile) => { setEditUser(u); setEditForm({ full_name: u.full_name, role: u.role, department_id: u.department_id ?? '', position: u.position ?? '', phone: u.phone ?? '' }); };
+  const saveEdit = async () => { if (!editUser || !editForm.full_name) return; const { error } = await supabase.from('profiles').update({ full_name: editForm.full_name, role: editForm.role, department_id: editForm.department_id || null, position: editForm.position || null, phone: editForm.phone || null }).eq('id', editUser.id); if (error) { alert(error.message); return; } setEditUser(null); reload(); };
 
   return (
     <div className="space-y-6">
@@ -63,7 +67,7 @@ function UsersTab() {
                   <td className="px-4 py-3"><Badge className="bg-slate-100 text-slate-600">{ROLE_LABELS[u.role]}</Badge></td>
                   <td className="px-4 py-3 text-slate-500">{departments.find((d) => d.id === u.department_id)?.name ?? '-'}</td>
                   <td className="px-4 py-3"><Badge className={u.active ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'}>{u.active ? 'Ativo' : 'Inativo'}</Badge></td>
-                  {canManage && <td className="px-4 py-3"><div className="flex gap-1"><button onClick={() => toggleActive(u)} className="text-xs text-slate-500 hover:text-slate-700 px-2 py-1 rounded hover:bg-slate-100">{u.active ? 'Desativar' : 'Ativar'}</button><button onClick={() => remove(u)} className="p-1 text-slate-300 hover:text-red-500"><Trash2 size={16} /></button></div></td>}
+                  {canManage && <td className="px-4 py-3"><div className="flex gap-1"><button onClick={() => openEdit(u)} className="p-1 text-slate-400 hover:text-sow-600" title="Editar cadastro"><Pencil size={16} /></button><button onClick={() => toggleActive(u)} className="text-xs text-slate-500 hover:text-slate-700 px-2 py-1 rounded hover:bg-slate-100">{u.active ? 'Desativar' : 'Ativar'}</button><button onClick={() => remove(u)} className="p-1 text-slate-300 hover:text-red-500"><Trash2 size={16} /></button></div></td>}
                 </tr>
               ))}
             </tbody>
@@ -84,6 +88,10 @@ function UsersTab() {
           </div>
           <div className="flex justify-end gap-2"><Button variant="outline" onClick={() => setModal(false)}>Cancelar</Button><Button onClick={createUser}>Enviar convite</Button></div>
         </div>
+      </Modal>
+
+      <Modal open={!!editUser} onClose={() => setEditUser(null)} title="Editar cadastro do usuário" size="lg">
+        <div className="space-y-4"><div className="bg-slate-50 rounded-lg p-3 text-sm text-slate-600">Empresa vinculada: <strong>{company?.name ?? 'Empresa selecionada'}</strong>. O usuário permanece vinculado a esta empresa; a alteração da empresa deve ser feita pelo administrador SOW com autorização.</div><div className="grid grid-cols-1 md:grid-cols-2 gap-4"><Input label="Nome completo" value={editForm.full_name} onChange={(v) => setEditForm({ ...editForm, full_name: v })} required /><div><label className="block text-sm font-medium text-slate-700 mb-1.5">E-mail</label><div className="w-full px-3.5 py-2.5 border border-slate-200 rounded-lg text-sm bg-slate-50 text-slate-500">{editUser?.email ?? ''}</div></div><Select label="Perfil de acesso" value={editForm.role} onChange={(v) => setEditForm({ ...editForm, role: v as Role })} options={roles.map((r) => ({ value: r, label: ROLE_LABELS[r] }))} /><Select label="Departamento" value={editForm.department_id} onChange={(v) => setEditForm({ ...editForm, department_id: v })} placeholder="Sem departamento" options={departments.map((d) => ({ value: d.id, label: d.name }))} /><Input label="Cargo" value={editForm.position} onChange={(v) => setEditForm({ ...editForm, position: v })} /><Input label="Telefone" value={editForm.phone} onChange={(v) => setEditForm({ ...editForm, phone: v })} /></div><div className="flex justify-end gap-2"><Button variant="outline" onClick={() => setEditUser(null)}>Cancelar</Button><Button onClick={saveEdit}>Salvar alterações</Button></div></div>
       </Modal>
     </div>
   );

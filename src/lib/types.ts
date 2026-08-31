@@ -263,6 +263,7 @@ export interface ActionWithRelations extends Action {
 }
 
 export type PermissionKey =
+  | 'can_manage_users'
   | 'can_create_facts'
   | 'can_edit_facts'
   | 'can_edit_causes'
@@ -305,6 +306,7 @@ export interface UserPermission {
   can_approve_actions: boolean;
   can_view_all_actions: boolean;
   can_view_history: boolean;
+  can_manage_users: boolean;
   full_management: boolean;
   is_primary_admin: boolean;
   created_at: string;
