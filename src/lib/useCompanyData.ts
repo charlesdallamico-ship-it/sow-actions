@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { supabase } from './supabase';
 import { useAuth } from './auth';
-import type { Company, Department, Unit, Profile, StrategicObjective, Indicator } from './types';
+import type { Company, Department, Unit, Profile, StrategicObjective, Indicator, Team, TeamMember } from './types';
 
 export function useCompanyData() {
   const { profile, refreshProfile } = useAuth();
@@ -14,6 +14,8 @@ export function useCompanyData() {
   const [users, setUsers] = useState<Profile[]>([]);
   const [objectives, setObjectives] = useState<StrategicObjective[]>([]);
   const [indicators, setIndicators] = useState<Indicator[]>([]);
+  const [teams, setTeams] = useState<Team[]>([]);
+  const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
@@ -27,18 +29,20 @@ export function useCompanyData() {
       setCompanies([]);
     }
 
-    if (!companyId) { setCompany(null); setDepartments([]); setUnits([]); setUsers([]); setObjectives([]); setIndicators([]); setLoading(false); return; }
+    if (!companyId) { setCompany(null); setDepartments([]); setUnits([]); setUsers([]); setObjectives([]); setIndicators([]); setTeams([]); setTeamMembers([]); setLoading(false); return; }
     setLoading(true);
     const usersQuery = profile.role === 'sow_admin' || profile.role === 'company_admin'
       ? supabase.rpc('get_user_access_overview', { p_company_id: companyId })
       : supabase.from('profiles').select('*').eq('company_id', companyId).order('full_name');
-    const [c, d, u, p, o, i] = await Promise.all([
+    const [c, d, u, p, o, i, t, tm] = await Promise.all([
       supabase.from('companies').select('*').eq('id', companyId).maybeSingle(),
       supabase.from('departments').select('*').eq('company_id', companyId).order('name'),
       supabase.from('units').select('*').eq('company_id', companyId).order('name'),
       usersQuery,
       supabase.from('strategic_objectives').select('*').eq('company_id', companyId).order('name'),
       supabase.from('indicators').select('*').eq('company_id', companyId).order('name'),
+      supabase.from('teams').select('*').eq('company_id', companyId).eq('active', true).order('name'),
+      supabase.from('team_members').select('*').eq('company_id', companyId),
     ]);
     setCompany(c.data as Company | null);
     setDepartments((d.data as Department[] | undefined) ?? []);
@@ -46,6 +50,8 @@ export function useCompanyData() {
     setUsers((p.data as Profile[] | undefined) ?? []);
     setObjectives((o.data as StrategicObjective[] | undefined) ?? []);
     setIndicators((i.data as Indicator[] | undefined) ?? []);
+    setTeams((t.data as Team[] | undefined) ?? []);
+    setTeamMembers((tm.data as TeamMember[] | undefined) ?? []);
     setLoading(false);
   }, [companyId, profile]);
 
@@ -65,5 +71,5 @@ export function useCompanyData() {
     await refreshProfile();
   }, [profile, refreshProfile]);
 
-  return { company, companies, departments, units, users, objectives, indicators, loading, reload: load, companyId, switchCompany };
+  return { company, companies, departments, units, users, objectives, indicators, teams, teamMembers, loading, reload: load, companyId, switchCompany };
 }

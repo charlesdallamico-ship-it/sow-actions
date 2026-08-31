@@ -24,7 +24,7 @@ type Tab = 'actions' | 'history' | 'deadline_requests';
 
 export function FactDetailPage({ factId, onBack }: { factId: string; onBack: () => void }) {
   const { profile } = useAuth();
-  const { users, departments, units, objectives, companyId } = useCompanyData();
+  const { users, departments, units, objectives, teams, companyId } = useCompanyData();
   const [fact, setFact] = useState<Fact | null>(null);
   const [actions, setActions] = useState<Action[]>([]);
   const [comments, setComments] = useState<Record<string, Comment[]>>({});
@@ -41,6 +41,7 @@ export function FactDetailPage({ factId, onBack }: { factId: string; onBack: () 
   const [actionForm, setActionForm] = useState({
     description: '', responsible_id: '', team: '', start_date: toISODate(new Date()), deadline: '', indicator_of_success: '', target: '', weight: '33.33',
   });
+  const [actionTeamIds, setActionTeamIds] = useState<string[]>([]);
 
   // Edit fact modal
   const [editFactModal, setEditFactModal] = useState(false);
@@ -203,11 +204,14 @@ export function FactDetailPage({ factId, onBack }: { factId: string; onBack: () 
     if (actions.length >= 3) { alert('Cada fato pode ter no máximo 3 ações.'); return; }
     setEditAction(null);
     setActionForm({ description: '', responsible_id: '', team: '', start_date: toISODate(new Date()), deadline: '', indicator_of_success: '', target: '', weight: String(actions.length === 0 ? 34 : actions.length === 1 ? 33 : 33) });
+    setActionTeamIds([]);
     setActionModal(true);
   };
   const openEditAction = async (a: Action) => {
     setEditAction(a);
     setActionForm({ description: a.description, responsible_id: a.responsible_id ?? '', team: a.team ?? '', start_date: a.start_date ?? toISODate(new Date()), deadline: a.deadline ?? '', indicator_of_success: a.indicator_of_success ?? '', target: a.target ?? '', weight: String(a.weight) });
+    const { data: linkedTeams } = await supabase.from('action_teams').select('team_id').eq('action_id', a.id);
+    setActionTeamIds((linkedTeams ?? []).map((item) => item.team_id));
     const rec = await fetchRecurrence(a.id);
     setActionRecurrence(rec?.recurrence_type ?? 'none');
     setRecurrenceCustomDays(rec?.custom_days ? String(rec.custom_days) : '');
@@ -261,6 +265,8 @@ export function FactDetailPage({ factId, onBack }: { factId: string; onBack: () 
 
             const { error } = await supabase.from('actions').update(payload).eq('id', editAction.id);
             if (error) { alert(error.message); return; }
+            await supabase.from('action_teams').delete().eq('action_id', editAction.id);
+            if (actionTeamIds.length) await supabase.from('action_teams').insert(actionTeamIds.map((team_id) => ({ action_id: editAction.id, team_id, company_id: fact.company_id })));
             for (const c of changes) {
               await logHistory(editAction.id, c.field, c.oldVal, c.newVal);
               await insertAuditLog({
@@ -294,6 +300,8 @@ export function FactDetailPage({ factId, onBack }: { factId: string; onBack: () 
       // No structural changes, just save
       const { error } = await supabase.from('actions').update({ team: actionForm.team || null, start_date: actionForm.start_date || null, last_updated_at: new Date().toISOString() }).eq('id', editAction.id);
       if (error) { alert(error.message); return; }
+      await supabase.from('action_teams').delete().eq('action_id', editAction.id);
+      if (actionTeamIds.length) await supabase.from('action_teams').insert(actionTeamIds.map((team_id) => ({ action_id: editAction.id, team_id, company_id: fact.company_id })));
       setActionModal(false);
       load();
     } else {
@@ -309,6 +317,8 @@ export function FactDetailPage({ factId, onBack }: { factId: string; onBack: () 
       const { data: newAction, error } = await supabase.from('actions').insert(payload).select().single();
       if (error || !newAction) { alert(error?.message ?? 'Erro ao criar ação'); return; }
       const newAct = newAction as Action;
+      if (actionTeamIds.length) await supabase.from('action_teams').insert(actionTeamIds.map((team_id) => ({ action_id: newAct.id, team_id, company_id: fact.company_id })));
+      if (actionForm.responsible_id) await supabase.from('action_assignees').upsert({ action_id: newAct.id, profile_id: actionForm.responsible_id, company_id: fact.company_id, assignment_type: 'responsible', can_edit: true, validated: false });
       if (profile) {
         await insertAuditLog({
           companyId: fact.company_id, userId: profile.user_id,
@@ -901,7 +911,7 @@ export function FactDetailPage({ factId, onBack }: { factId: string; onBack: () 
           <Textarea label="Descrição da ação" value={actionForm.description} onChange={(v) => setActionForm({ ...actionForm, description: v })} required rows={2} placeholder="Ex: Contratar ou realocar vendedores para Santa Catarina." />
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <Select label="Responsável" value={actionForm.responsible_id} onChange={(v) => setActionForm({ ...actionForm, responsible_id: v })} placeholder="Selecione" options={users.map((u) => ({ value: u.id, label: u.full_name }))} />
-            <Input label="Equipe envolvida" value={actionForm.team} onChange={(v) => setActionForm({ ...actionForm, team: v })} placeholder="Ex: Comercial, Marketing" />
+            <div><div className="block text-sm font-medium text-slate-700 mb-1.5">Equipe envolvida</div><div className="max-h-32 overflow-y-auto border border-slate-300 rounded-lg">{teams.length === 0 ? <div className="p-2.5 text-sm text-slate-500">Nenhuma equipe cadastrada.</div> : teams.map((team) => <label key={team.id} className="flex items-center gap-2 p-2 text-sm cursor-pointer hover:bg-slate-50"><input type="checkbox" checked={actionTeamIds.includes(team.id)} onChange={() => setActionTeamIds((current) => current.includes(team.id) ? current.filter((id) => id !== team.id) : [...current, team.id])} />{team.name}</label>)}</div><p className="text-xs text-slate-500 mt-1">Selecione uma ou mais equipes já formadas no sistema.</p></div>
             <Input label="Data de início" type="date" value={actionForm.start_date} onChange={(v) => setActionForm({ ...actionForm, start_date: v })} />
             <Input label="Prazo final" type="date" value={actionForm.deadline} onChange={(v) => setActionForm({ ...actionForm, deadline: v })} />
             <Input label="Indicador de sucesso" value={actionForm.indicator_of_success} onChange={(v) => setActionForm({ ...actionForm, indicator_of_success: v })} placeholder="Ex: Número de vendedores ativos" />

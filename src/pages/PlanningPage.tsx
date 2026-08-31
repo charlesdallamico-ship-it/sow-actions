@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Target, Plus, Trash2, TrendingUp } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth';
@@ -8,20 +8,32 @@ import type { StrategicObjective, Indicator } from '@/lib/types';
 
 export function PlanningPage() {
   const { profile } = useAuth();
-  const { company, objectives, indicators, reload, companyId } = useCompanyData();
+  const { company, objectives, indicators, teams, users, reload, companyId } = useCompanyData();
   const [tab, setTab] = useState<'objectives' | 'indicators' | 'identity'>('objectives');
   const [objModal, setObjModal] = useState(false);
   const [indModal, setIndModal] = useState(false);
-  const [objForm, setObjForm] = useState({ name: '', description: '', type: '' });
+  const [objForm, setObjForm] = useState({ name: '', description: '', type: '', teamIds: [] as string[], userIds: [] as string[] });
+  const [objectiveTeams, setObjectiveTeams] = useState<{ objective_id: string; team_id: string }[]>([]);
+  const [objectiveUsers, setObjectiveUsers] = useState<{ objective_id: string; profile_id: string }[]>([]);
   const [indForm, setIndForm] = useState({ name: '', unit: '', current_value: '', target_value: '', objective_id: '' });
 
   const canEdit = profile?.role === 'sow_admin' || profile?.role === 'company_admin' || profile?.role === 'area_manager';
 
+  useEffect(() => {
+    if (!companyId) return;
+    Promise.all([
+      supabase.from('strategic_objective_teams').select('objective_id,team_id').eq('company_id', companyId),
+      supabase.from('strategic_objective_users').select('objective_id,profile_id').eq('company_id', companyId),
+    ]).then(([t, u]) => { setObjectiveTeams(t.data ?? []); setObjectiveUsers(u.data ?? []); });
+  }, [companyId, objectives.length]);
+
   const saveObj = async () => {
     if (!objForm.name || !companyId) return;
-    const { error } = await supabase.from('strategic_objectives').insert({ company_id: companyId, name: objForm.name, description: objForm.description, type: objForm.type });
-    if (error) { alert(error.message); return; }
-    setObjModal(false); setObjForm({ name: '', description: '', type: '' }); reload();
+    const { data, error } = await supabase.from('strategic_objectives').insert({ company_id: companyId, name: objForm.name, description: objForm.description, type: objForm.type }).select('id').single();
+    if (error || !data) { alert(error?.message ?? 'Não foi possível criar o objetivo.'); return; }
+    if (objForm.teamIds.length) await supabase.from('strategic_objective_teams').insert(objForm.teamIds.map((team_id) => ({ company_id: companyId, objective_id: data.id, team_id })));
+    if (objForm.userIds.length) await supabase.from('strategic_objective_users').insert(objForm.userIds.map((profile_id) => ({ company_id: companyId, objective_id: data.id, profile_id, can_view: true, can_execute: true, can_edit: profile_id === profile?.id })));
+    setObjModal(false); setObjForm({ name: '', description: '', type: '', teamIds: [], userIds: [] }); reload();
   };
   const saveInd = async () => {
     if (!indForm.name || !companyId) return;
@@ -67,6 +79,7 @@ export function PlanningPage() {
                   <div className="font-semibold text-slate-900 mb-1">{o.name}</div>
                   {o.type && <Badge className="bg-slate-100 text-slate-600 mb-2">{o.type}</Badge>}
                   {o.description && <p className="text-sm text-slate-500">{o.description}</p>}
+                  <div className="mt-3 space-y-1 text-xs text-slate-500"><div><span className="font-medium">Criado em:</span> {new Date(o.created_at).toLocaleDateString('pt-BR')}</div><div><span className="font-medium">Equipes:</span> {objectiveTeams.filter((x) => x.objective_id === o.id).map((x) => teams.find((t) => t.id === x.team_id)?.name).filter(Boolean).join(', ') || 'Não vinculadas'}</div><div><span className="font-medium">Responsáveis:</span> {objectiveUsers.filter((x) => x.objective_id === o.id).map((x) => users.find((u) => u.id === x.profile_id)?.full_name).filter(Boolean).join(', ') || 'Não definidos'}</div></div>
                 </Card>
               ))}
             </div>
@@ -135,6 +148,8 @@ export function PlanningPage() {
           <Input label="Nome" value={objForm.name} onChange={(v) => setObjForm({ ...objForm, name: v })} required placeholder="Ex: Aumentar faturamento" />
           <Input label="Tipo" value={objForm.type} onChange={(v) => setObjForm({ ...objForm, type: v })} placeholder="Ex: Crescimento, Eficiência" />
           <Textarea label="Descrição" value={objForm.description} onChange={(v) => setObjForm({ ...objForm, description: v })} rows={3} />
+          <div><div className="text-sm font-medium text-slate-700 mb-2">Equipes envolvidas</div><div className="max-h-32 overflow-y-auto border border-slate-200 rounded-lg">{teams.length === 0 ? <div className="p-3 text-sm text-slate-500">Crie equipes antes de vincular.</div> : teams.map((team) => <label key={team.id} className="flex items-center gap-2 p-2 text-sm cursor-pointer hover:bg-slate-50"><input type="checkbox" checked={objForm.teamIds.includes(team.id)} onChange={() => setObjForm((f) => ({ ...f, teamIds: f.teamIds.includes(team.id) ? f.teamIds.filter((id) => id !== team.id) : [...f.teamIds, team.id] }))} />{team.name}</label>)}</div></div>
+          <div><div className="text-sm font-medium text-slate-700 mb-2">Usuários responsáveis/envolvidos</div><div className="max-h-32 overflow-y-auto border border-slate-200 rounded-lg">{users.map((user) => <label key={user.id} className="flex items-center gap-2 p-2 text-sm cursor-pointer hover:bg-slate-50"><input type="checkbox" checked={objForm.userIds.includes(user.id)} onChange={() => setObjForm((f) => ({ ...f, userIds: f.userIds.includes(user.id) ? f.userIds.filter((id) => id !== user.id) : [...f.userIds, user.id] }))} />{user.full_name}<span className="text-xs text-slate-400">{user.email}</span></label>)}</div><p className="text-xs text-slate-500 mt-1">A autorização individual será aplicada no vínculo do objetivo.</p></div>
           <div className="flex justify-end gap-2"><Button variant="outline" onClick={() => setObjModal(false)}>Cancelar</Button><Button onClick={saveObj}>Criar</Button></div>
         </div>
       </Modal>

@@ -59,6 +59,25 @@ export interface Department {
   created_at: string;
 }
 
+export interface Team {
+  id: string;
+  company_id: string;
+  name: string;
+  description: string | null;
+  active: boolean;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface TeamMember {
+  id: string;
+  company_id: string;
+  team_id: string;
+  profile_id: string;
+  created_at: string;
+}
+
 export interface Profile {
   id: string;
   user_id: string;
@@ -105,6 +124,11 @@ export interface StrategicObjective {
   type: string | null;
   created_at: string;
 }
+
+export interface StrategicObjectiveTeam { objective_id: string; team_id: string; company_id: string; }
+export interface StrategicObjectiveUser { objective_id: string; profile_id: string; company_id: string; can_view: boolean; can_edit: boolean; can_execute: boolean; }
+export interface ActionTeam { action_id: string; team_id: string; company_id: string; }
+export interface ActionAssignee { action_id: string; profile_id: string; company_id: string; assignment_type: 'responsible' | 'participant'; can_edit: boolean; validated: boolean; validated_by: string | null; validated_at: string | null; }
 
 export interface Indicator {
   id: string;
@@ -176,6 +200,9 @@ export interface Action {
   cancel_reason: string | null;
   original_description: string | null;
   recurrence_configured: boolean;
+  responsibility_validated?: boolean;
+  responsibility_validated_by?: string | null;
+  responsibility_validated_at?: string | null;
 }
 
 export interface Comment {
